@@ -30,6 +30,7 @@
 #' @param r_bitness The bitness of the R installation you want to use (i386 or x64)
 #' @param tcp_port The port Electron and R are going to run at. Select 0 for a random port, avoid privileged ports
 #' @param pandoc_version pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If blank, pandoc won't be installed
+#' @param r_version R version to install. If set to 'latest', the latest version will be installed
 #'
 #' @export
 #'
@@ -54,7 +55,8 @@ electrify <- function(app_name = NULL,
                       mac_url = "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
                       r_bitness = c("x64", "i386"),
                       tcp_port = 0,
-                      pandoc_version = NULL
+                      pandoc_version = NULL,
+                      r_version = "latest"
                       ){
   
   
@@ -138,7 +140,8 @@ electrify <- function(app_name = NULL,
                            app_root_path = app_root_path,
                            mac_url = mac_url,
                            permission_to_install = permission_to_install_r,
-                           bitness = r_bitness)
+                           bitness = r_bitness,
+                           r_version = r_version)
   
   # Trim R's size -----------------------------------------------------------
   electricShine::trim_r(app_root_path = app_root_path)

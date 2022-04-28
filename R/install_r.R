@@ -3,6 +3,7 @@
 #' @param cran_like_url CRAN-like url e.g. https://cran.r-project.org/bin/windows/base
 #' @param app_root_path path to current electricShine app build
 #' @param mac_url mac R installer url
+#' @param r_version R version to install. If set to 'latest', the latest version will be installed
 #' @param permission_to_install have permission to install R?
 #'
 #' @export
@@ -11,6 +12,7 @@ install_r <- function(cran_like_url = NULL,
                       app_root_path,
                       mac_url = "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
                       permission_to_install  = FALSE,
+                      r_version = "latest",
                       bitness = "x64"){
   
   
@@ -42,8 +44,7 @@ install_r <- function(cran_like_url = NULL,
     }
     
     if (identical(os, "win")) {
-      
-      win_url <- .find_win_exe_url(cran_like_url = cran_like_url)
+      win_url <- .find_win_exe_url(cran_like_url = cran_like_url, r_version = r_version)
       
       win_installer_path <- .download_r(d_url = win_url)
       
@@ -72,33 +73,43 @@ install_r <- function(cran_like_url = NULL,
 #' Find Windows R installer URL from MRAN snapshot
 #'
 #' @param cran_like_url  url to cran-like repository
-#'
+#' @param version R version to be used, 'latest' means: use the latest version 
+#' 
 #' @return url for Windows R installer  
 #'
-.find_win_exe_url <- function(cran_like_url = NULL){
+.find_win_exe_url <- function(cran_like_url = NULL, r_version = 'latest'){
   
-  
-  baseUrl <-  file.path(cran_like_url,
-                        "bin",
-                        "windows",
-                        "base")
-  
-  # Read snapshot html
-  readCran <- base::readLines(baseUrl,
-                              warn = FALSE)
-  
-  # Find the name of the windows exe
-  filename <- base::regexpr("R-[0-9.]+.+-win\\.exe", readCran)
-  filename <- base::regmatches(readCran, filename)
-  
-  if (base::regexpr("R-[0-9.]+.+-win\\.exe", filename)[[1]] != 1L) {
-    stop("Was unable to resolve url of R.exe installer for Windows.") 
+  if(r_version == 'latest'){
+    baseUrl <-  file.path(cran_like_url,
+                          "bin",
+                          "windows",
+                          "base")
+    
+    # Read snapshot html
+    readCran <- base::readLines(baseUrl,
+                                warn = FALSE)
+    
+    # Find the name of the windows exe
+    filename <- base::regexpr("R-[0-9.]+.+-win\\.exe", readCran)
+    filename <- base::regmatches(readCran, filename)
+    
+    if (base::regexpr("R-[0-9.]+.+-win\\.exe", filename)[[1]] != 1L) {
+      stop("Was unable to resolve url of R.exe installer for Windows.") 
+    }
+    
+    # Construct the url of the download
+    win_exe_url <- base::file.path(baseUrl, 
+                                   filename,
+                                   fsep = "/")
+  }else{
+    if(r_version < '3.4.0'){
+      if(cran_like_url != 'https://cran.r-project.org') warning('Ignoring cran_like_url for old R versions, downloading R from cran-archive.r-project.org\n')
+      win_exe_url <- glue::glue('https://cran-archive.r-project.org/bin/windows/base/old/{r_version}/R-{r_version}-win.exe')
+    }else{
+      win_exe_url <- glue::glue('{cran_like_url}/bin/windows/base/old/{r_version}/R-{r_version}-win.exe')
+    }
   }
   
-  # Construct the url of the download
-  win_exe_url <- base::file.path(baseUrl, 
-                                 filename,
-                                 fsep = "/")
   
   return(win_exe_url)
 }
