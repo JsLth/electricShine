@@ -28,7 +28,7 @@
 #' @param permission automatically grant permission to install nodejs and R 
 #' @param mac_url url to mac OS tar.gz 
 #' @param r_bitness The bitness of the R installation you want to use (i386 or x64)
-#' @param tcp_port The port Electron and R are going to run at. Select 0 for a random port, avoid privileged ports
+#' @param app_args Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting
 #' @param pandoc_version pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If blank, pandoc won't be installed
 #' @param r_version R version to install. If set to 'latest', the latest version will be installed
 #'
@@ -54,7 +54,7 @@ electrify <- function(app_name = NULL,
                       permission = FALSE,
                       mac_url = "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
                       r_bitness = c("x64", "i386"),
-                      tcp_port = 0,
+                      app_args = "",
                       pandoc_version = NULL,
                       r_version = "latest"
                       ){
@@ -245,7 +245,7 @@ electrify <- function(app_name = NULL,
                                       function_name = function_name,
                                       r_path = base::dirname(library_path),
                                       r_bitness = r_bitness,
-                                      tcp_port = tcp_port)
+                                      app_args = app_args)
   
   
   # Download and unzip nodejs -----------------------------------------------

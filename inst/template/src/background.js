@@ -35,7 +35,6 @@ const {
 import path from "path";
 const { exec } = require('child_process');
 
-const MACOS = "darwin"; // Erikvona: I'm 99% sure the MacOS support is now even more thoroughly broken
 const WINDOWS = "win32";
 
 const fs = require('fs');
@@ -55,30 +54,11 @@ const waitFor = (milliseconds) => {
 const log = require('electron-log');
 log.info('Application Started');
 
-
-//Find and bind an open port
-//Assigned port can be accesssed with srv.address().port
-var net = require('net');
-var srv = net.createServer(function(sock) {
-  sock.end('Hello world\n');
-});
-srv.listen(<?<TCP_PORT>?>, function() {
- console.log('Electron listening on port ' + srv.address().port);
-});
-
 let NODER = null
 // folder above "bin/RScript"
 if (process.platform == WINDOWS) {
   var rResources = path.join(app.getAppPath(), 'app', 'r_lang');
   NODER = path.join(rResources, "bin", "<?<R_BITNESS>?>", "rscript.exe");
-}
-
-if (process.platform == MACOS) {
-  var rVer = fs.readdirSync(path.join(app.getAppPath(), 'app', 'r_lang', "Library", "Frameworks", "R.framework", "Versions")).filter(fn => fn.match(/\d+\.(?:\d+|x)(?:\.\d+|x){0,1}/g));
-  var rResources = path.join(app.getAppPath(), 'app', 'r_lang', "Library", "Frameworks", "R.framework", "Versions", rVer.toString(), 'Resources');
-  //Unfortunately on MacOS paths are hardcoded into 
-  //Rscript but it's in binary so have to use R instead
-  NODER = path.join(rResources, "bin", "rscript");
 }
 
 let rShinyProcess = null
@@ -146,12 +126,54 @@ const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
       await tryStartWebserver(attempt + 1, progressCallback, onErrorStartup, onErrorLater, onSuccess)
     }
   }
-
+  async function connectShiny(url){
+    for (let i = 0; i <= 10; i++) {
+      if (shinyProcessAlreadyDead) {
+        break
+      }
+  
+      try {
+        if (shinyRunning === false) {
+          mainWindow.loadURL(url);
+          await waitFor(i * 1000)
+          mainWindow.webContents.executeJavaScript('window.Shiny.shinyapp.isConnected()', true)
+            .then((result) => {
+              mainWindow.webContents.executeJavaScript(`
+                $(document).on(\'shiny:sessioninitialized\', function(event) {
+                  window.Shiny.setInputValue(\'TerminateOnExit\', true);
+                });
+                null;
+              `, true)
+              .then((result)=>{
+                shinyConnected = true
+              })
+              shinyRunning = true
+              mainWindow.maximize()
+              mainWindow.focus()
+              loadingSplashScreen.close()
+              console.log('Trying to connect to Shiny... connected')
+            })
+            .catch((result) => {
+              if (shinyRunning === false) {
+                console.log('Trying to connect to Shiny... ' + i)
+              }
+            })
+        } 
+      } catch (e) {
+  
+      }
+    }
+  }
   let shinyProcessAlreadyDead = false;
   let shinyConnected = false;
   let logRMessages = function(message, channel){
     // Unfortunately, can't get IPC to work with Shiny, so we're passing base64 strings
     if(channel == 'stderr'){
+      const regexp = new RegExp("(?<=Listening on )http[\\S]*", "gm")
+      let connected_to_url = message.match(regexp);
+      if(connected_to_url != null & !shinyConnected){
+        connectShiny(connected_to_url[0])
+      }
       log.info('R stderr: ' + message) // R uses stderr for all normal messages
       if(shinyConnected){
         mainWindow.webContents.executeJavaScript(
@@ -168,7 +190,9 @@ const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
     }
     return(null);
   }
-  rShinyProcess = exec('"' + NODER + '" -e <?<R_SHINY_FUNCTION>?>(options=list(port='+srv.address().port+'))',
+
+
+  rShinyProcess = exec('"' + NODER + '" -e "<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)"',
      {
       env: {
         //Necessary for letting R know where it is and ensure we're not using another R 
@@ -208,42 +232,7 @@ const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
   });
 
 
-  for (let i = 0; i <= 10; i++) {
-    if (shinyProcessAlreadyDead) {
-      break
-    }
-
-    try {
-      if (shinyRunning === false) {
-        mainWindow.loadURL('http://127.0.0.1:' + srv.address().port);
-        await waitFor(i * 1000)
-        mainWindow.webContents.executeJavaScript('window.Shiny.shinyapp.isConnected()', true)
-          .then((result) => {
-            mainWindow.webContents.executeJavaScript(`
-              $(document).on(\'shiny:sessioninitialized\', function(event) {
-                window.Shiny.setInputValue(\'TerminateOnExit\', true);
-              });
-              null;
-            `, true)
-            .then((result)=>{
-              shinyConnected = true
-            })
-            shinyRunning = true
-            mainWindow.maximize()
-            mainWindow.focus()
-            loadingSplashScreen.close()
-            console.log('Trying to connect to Shiny... connected')
-          })
-          .catch((result) => {
-            if (shinyRunning === false) {
-              console.log('Trying to connect to Shiny... ' + i)
-            }
-          })
-      } 
-    } catch (e) {
-
-    }
-  }
+ 
   await progressCallback({
     attempt: attempt,
     code: 'notresponding'
@@ -367,15 +356,6 @@ app.on('before-quit', () => {
   }
   log.info('Application stopped');
 });
-
-app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  //if (mainWindow === null) {
-  //  createWindow()
-  //}
-  // Deactivated for now
-})
 
 
 

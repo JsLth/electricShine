@@ -5,6 +5,8 @@
 #' @param my_package_name package name, will be used for namespacing- (e.g. 'dplyr' in 'dplyr::filter()')
 #' @param function_name function that runs your shiny app - (e.g. 'filter' in 'dplyr::filter()')
 #' @param r_path path from "r_lang" folder to the R/Rscript executable
+#' @param r_bitness bitness of R installation, only applicable before R 4.2.0
+#' @param app_args arguments to the function that runs your shiny app
 #'
 #' @return none, side effect
 #' @export
@@ -14,9 +16,9 @@ modify_background_js <- function(background_js_path,
                                  function_name,
                                  r_path,
                                  r_bitness = "x64",
-                                 tcp_port = 0){
+                                 app_args){
   if (!file.exists(background_js_path)) {
-    stop("addFunctionToBackgroundJs() failed because background_js_path didn't point to an existing file.")
+    stop("modify_background_js() failed because background_js_path didn't point to an existing file.")
   }
   
   background_js_contents <- readLines(background_js_path)
@@ -25,7 +27,7 @@ modify_background_js <- function(background_js_path,
                              "::",
                              function_name)
   R_BITNESS <- force(r_bitness)
-  TCP_PORT <- force(tcp_port)
+  APP_ARGS <- force(app_args)
   background_js_contents <- sapply(background_js_contents,
                                    function(x) {
                                      glue::glue(x, 
