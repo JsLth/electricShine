@@ -12,6 +12,7 @@
 #' @param copyright_name copyright-holder's name
 #' @param deps is to allow testing with testthat
 #' @param website website of app or company
+#' @param product_name The product name, often identical to the app name, but with spaces and some special characters allowed
 #'
 #' @return outputs package.json file with user-input modifications
 #' @export
@@ -26,7 +27,8 @@ create_package_json <- function(app_name = "MyApp",
                                 copyright_name = "",
                                 website = "",
                                 license = "",
-                                deps = NULL){
+                                deps = NULL,
+                                product_name = app_name){
 
 
 
@@ -42,7 +44,7 @@ create_package_json <- function(app_name = "MyApp",
 '
 {
   "name": "<<app_name>>",
-  "productName": "<<app_name>>",
+  "productName": "<<product_name>>",
   "description": "<<description>>",
   "version": "<<semantic_version>>",
   "private": true,

@@ -36,8 +36,6 @@ import path from "path";
 const { exec } = require('child_process');
 
 const WINDOWS = "win32";
-
-const fs = require('fs');
 const backgroundColor = '#2c3e50'
 Menu.setApplicationMenu(null);
 
@@ -68,294 +66,307 @@ let shutdown = false
 let mainWindow
 let loadingSplashScreen
 let errorSplashScreen
+// Enforce single instance
+const gotTheLock = app.requestSingleInstanceLock()
 
-const createWindow = (shinyUrl) => {
-  mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
+
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
     }
   })
-  mainWindow.on('closed', () => {
-    mainWindow = null
-  })
-}
 
-
-// tries to start a webserver
-// attempt - a counter how often it was attempted to start a webserver
-// use the progress call back to listen for intermediate status reports
-// use the onErrorStartup callback to react to a critical failure during startup
-// use the onErrorLater callback to handle the case when the R process dies
-// use onSuccess to retrieve the shinyUrl
-const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
-  onErrorLater, onSuccess) => {
-  if (attempt > 3) {
-    await progressCallback({
-      attempt: attempt,
-      code: 'failed'
+  const createWindow = (shinyUrl) => {
+    mainWindow = new BrowserWindow({
+      width: 800,
+      height: 600,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
     })
-    await onErrorStartup()
-    return
-  }
-
-  if (rShinyProcess !== null) {
-    await onErrorStartup() // should not happen
-    return
+    mainWindow.on('closed', () => {
+      mainWindow = null
+    })
   }
 
 
-  await progressCallback({
-    attempt: attempt,
-    code: 'start'
-  })
-
-  let shinyRunning = false
-  const onError = async (e) => {
-    console.error(e)
-    rShinyProcess = null
-    if (shutdown) { // global state :(
+  // tries to start a webserver
+  // attempt - a counter how often it was attempted to start a webserver
+  // use the progress call back to listen for intermediate status reports
+  // use the onErrorStartup callback to react to a critical failure during startup
+  // use the onErrorLater callback to handle the case when the R process dies
+  // use onSuccess to retrieve the shinyUrl
+  const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
+    onErrorLater, onSuccess) => {
+    if (attempt > 3) {
+      await progressCallback({
+        attempt: attempt,
+        code: 'failed'
+      })
+      await onErrorStartup()
       return
     }
-    if (shinyRunning) {
-      await onErrorLater()
-    } else {
-      await tryStartWebserver(attempt + 1, progressCallback, onErrorStartup, onErrorLater, onSuccess)
+
+    if (rShinyProcess !== null) {
+      await onErrorStartup() // should not happen
+      return
     }
-  }
-  async function connectShiny(url){
-    for (let i = 0; i <= 10; i++) {
-      if (shinyProcessAlreadyDead) {
-        break
+
+
+    await progressCallback({
+      attempt: attempt,
+      code: 'start'
+    })
+
+    let shinyRunning = false
+    const onError = async (e) => {
+      console.error(e)
+      rShinyProcess = null
+      if (shutdown) { // global state :(
+        return
       }
-  
-      try {
-        if (shinyRunning === false) {
-          mainWindow.loadURL(url);
-          await waitFor(i * 1000)
-          mainWindow.webContents.executeJavaScript('window.Shiny.shinyapp.isConnected()', true)
-            .then((result) => {
-              mainWindow.webContents.executeJavaScript(`
+      if (shinyRunning) {
+        await onErrorLater()
+      } else {
+        await tryStartWebserver(attempt + 1, progressCallback, onErrorStartup, onErrorLater, onSuccess)
+      }
+    }
+    async function connectShiny(url) {
+      for (let i = 0; i <= 10; i++) {
+        if (shinyProcessAlreadyDead) {
+          break
+        }
+
+        try {
+          if (shinyRunning === false) {
+            mainWindow.loadURL(url);
+            await waitFor(i * 1000)
+            mainWindow.webContents.executeJavaScript('window.Shiny.shinyapp.isConnected()', true)
+              .then((result) => {
+                mainWindow.webContents.executeJavaScript(`
                 $(document).on(\'shiny:sessioninitialized\', function(event) {
                   window.Shiny.setInputValue(\'TerminateOnExit\', true);
                 });
                 null;
               `, true)
-              .then((result)=>{
-                shinyConnected = true
+                  .then((result) => {
+                    shinyConnected = true
+                  })
+                shinyRunning = true
+                mainWindow.maximize()
+                mainWindow.focus()
+                loadingSplashScreen.close()
+                console.log('Trying to connect to Shiny... connected')
               })
-              shinyRunning = true
-              mainWindow.maximize()
-              mainWindow.focus()
-              loadingSplashScreen.close()
-              console.log('Trying to connect to Shiny... connected')
-            })
-            .catch((result) => {
-              if (shinyRunning === false) {
-                console.log('Trying to connect to Shiny... ' + i)
-              }
-            })
-        } 
-      } catch (e) {
-  
+              .catch((result) => {
+                if (shinyRunning === false) {
+                  console.log('Trying to connect to Shiny... ' + i)
+                }
+              })
+          }
+        } catch (e) {
+
+        }
       }
+    }
+    let shinyProcessAlreadyDead = false;
+    let shinyConnected = false;
+    let logRMessages = function (message, channel) {
+      // Unfortunately, can't get IPC to work with Shiny, so we're passing base64 strings
+      if (channel == 'stderr') {
+        const regexp = new RegExp("(?<=Listening on )http[\\S]*", "gm")
+        let connected_to_url = message.match(regexp);
+        if (connected_to_url != null & !shinyConnected) {
+          connectShiny(connected_to_url[0])
+        }
+        log.info('R stderr: ' + message) // R uses stderr for all normal messages
+        if (shinyConnected) {
+          mainWindow.webContents.executeJavaScript(
+            'window.Shiny.setInputValue(\'R_STDERR_ELECTRON\', atob(\'' + Buffer.from(message, 'ascii').toString('base64') + '\'),  {priority: "event"});null;'
+          )
+        }
+      } else if (channel == 'stdout') {
+        log.info('R stdout: ' + message)
+        if (shinyConnected) {
+          mainWindow.webContents.executeJavaScript(
+            'window.Shiny.setInputValue(\'R_STDOUT_ELECTRON\', atob(\'' + Buffer.from(message, 'ascii').toString('base64') + '\'), {priority: "event"});null;'
+          )
+        }
+      }
+      return (null);
+    }
+
+
+    rShinyProcess = exec('"' + NODER + '" -e "<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)"',
+      {
+        env: {
+          //Necessary for letting R know where it is and ensure we're not using another R 
+          'WITHIN_ELECTRON': 'T', // can be used within an app to implement specific behaviour
+          'RHOME': rResources,
+          'R_HOME_DIR': rResources,
+          'R_LIBS': path.join(rResources, "library"),
+          'R_LIBS_USER': path.join(rResources, "library"),
+          'R_LIBS_SITE': path.join(rResources, "library"),
+          'R_LIB_PATHS': path.join(rResources, "library")
+        }
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`exec error: ${error}`);
+          return;
+        }
+        console.log(`stdout: ${stdout}`);
+        console.error(`stderr: ${stderr}`);
+      }
+    )
+    rShinyProcess.stderr.on('readable', function () {
+      // There is some data to read now.
+      let data;
+
+      while (data = this.read()) {
+        logRMessages(data, 'stderr');
+      }
+    });
+    rShinyProcess.stdout.on('readable', function () {
+      // There is some data to read now.
+      let data;
+
+      while (data = this.read()) {
+        logRMessages(data, 'stdout');
+      }
+    });
+
+
+
+    await progressCallback({
+      attempt: attempt,
+      code: 'notresponding'
+    })
+
+    // try {
+    //   rShinyProcess.kill()
+    // } catch (e) {}
+  }
+
+
+
+  const splashScreenOptions = {
+    width: 800,
+    height: 600,
+    backgroundColor: backgroundColor,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
     }
   }
-  let shinyProcessAlreadyDead = false;
-  let shinyConnected = false;
-  let logRMessages = function(message, channel){
-    // Unfortunately, can't get IPC to work with Shiny, so we're passing base64 strings
-    if(channel == 'stderr'){
-      const regexp = new RegExp("(?<=Listening on )http[\\S]*", "gm")
-      let connected_to_url = message.match(regexp);
-      if(connected_to_url != null & !shinyConnected){
-        connectShiny(connected_to_url[0])
-      }
-      log.info('R stderr: ' + message) // R uses stderr for all normal messages
-      if(shinyConnected){
-        mainWindow.webContents.executeJavaScript(
-          'window.Shiny.setInputValue(\'R_STDERR_ELECTRON\', atob(\'' + Buffer.from(message, 'ascii').toString('base64') + '\'),  {priority: "event"});null;'
-        )
-      }
-    }else if(channel == 'stdout'){
-      log.info('R stdout: ' + message)
-      if(shinyConnected){
-        mainWindow.webContents.executeJavaScript(
-          'window.Shiny.setInputValue(\'R_STDOUT_ELECTRON\', atob(\'' + Buffer.from(message, 'ascii').toString('base64') + '\'), {priority: "event"});null;'
-        )
-      }
-    }
-    return(null);
+
+  const createSplashScreen = (filename) => {
+    let splashScreen = new BrowserWindow(splashScreenOptions)
+    splashScreen.loadURL(path.join(app.getAppPath(), 'app', filename + '.html'))
+    splashScreen.on('closed', () => {
+      splashScreen = null
+    })
+    return splashScreen
+  }
+
+  const createLoadingSplashScreen = () => {
+    loadingSplashScreen = createSplashScreen('loading')
+  }
+
+  const createErrorScreen = () => {
+    errorSplashScreen = createSplashScreen('failed')
   }
 
 
-  rShinyProcess = exec('"' + NODER + '" -e "<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)"',
-     {
-      env: {
-        //Necessary for letting R know where it is and ensure we're not using another R 
-        'WITHIN_ELECTRON': 'T', // can be used within an app to implement specific behaviour
-        'RHOME': rResources,
-        'R_HOME_DIR': rResources,
-        'R_LIBS': path.join(rResources, "library"),
-        'R_LIBS_USER': path.join(rResources, "library"),
-        'R_LIBS_SITE': path.join(rResources, "library"),
-        'R_LIB_PATHS': path.join(rResources, "library")
-      }
-    },
-    (error, stdout, stderr) => {
-      if (error) {
-        console.error(`exec error: ${error}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      console.error(`stderr: ${stderr}`);
-    }
-   )
-   rShinyProcess.stderr.on('readable', function() {
-    // There is some data to read now.
-    let data;
-  
-    while (data = this.read()) {
-      logRMessages(data, 'stderr');
-    }
-  });
-  rShinyProcess.stdout.on('readable', function() {
-    // There is some data to read now.
-    let data;
-  
-    while (data = this.read()) {
-      logRMessages(data, 'stdout');
-    }
-  });
-
-
- 
-  await progressCallback({
-    attempt: attempt,
-    code: 'notresponding'
-  })
-
-  // try {
-  //   rShinyProcess.kill()
-  // } catch (e) {}
-}
 
 
 
-const splashScreenOptions = {
-  width: 800,
-  height: 600,
-  backgroundColor: backgroundColor,
-  webPreferences: {
-    nodeIntegration: true,
-    contextIsolation: false
-  }
-}
+  // This method will be called when Electron has finished
+  // initialization and is ready to create browser windows.
+  // Some APIs can only be used after this event occurs.
+  app.on('ready', async () => {
 
-const createSplashScreen = (filename) => {
-  let splashScreen = new BrowserWindow(splashScreenOptions)
-  splashScreen.loadURL(path.join(app.getAppPath(), 'app', filename + '.html'))
-  splashScreen.on('closed', () => {
-    splashScreen = null
-  })
-  return splashScreen
-}
+    createWindow()
 
-const createLoadingSplashScreen = () => {
-  loadingSplashScreen = createSplashScreen('loading')
-}
-
-const createErrorScreen = () => {
-  errorSplashScreen = createSplashScreen('failed')
-}
-
-
-
-
-
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.on('ready', async () => {
-
-  createWindow()
-
-  // Set a content security policy
-  session.defaultSession.webRequest.onHeadersReceived((_, callback) => {
-    callback({
-      responseHeaders: `
+    // Set a content security policy
+    session.defaultSession.webRequest.onHeadersReceived((_, callback) => {
+      callback({
+        responseHeaders: `
         default-src 'none';
         script-src 'self';
         img-src 'self' data:;
         style-src 'self';
         font-src 'self';
       `
+      })
     })
+
+    // Deny all permission requests
+    /*  session.defaultSession.setPermissionRequestHandler((_1, _2, callback) => {
+        callback(false)
+      })
+    */
+    createLoadingSplashScreen()
+
+    const emitSpashEvent = async (event, data) => {
+      try {
+        await loadingSplashScreen.webContents.send(event, data)
+      } catch (e) { }
+    }
+
+    // pass the loading events down to the loadingSplashScreen window
+    const progressCallback = async (event) => {
+      await emitSpashEvent('start-webserver-event', event)
+    }
+
+    const onErrorLater = async () => {
+      if (!mainWindow) { // fired when we quit the app
+        return
+      }
+      createErrorScreen()
+      await errorSplashScreen.show()
+      mainWindow.destroy()
+    }
+
+    const onErrorStartup = async () => {
+      await waitFor(1000) // TODO: hack, only emit if the loading screen is ready
+      await emitSpashEvent('failed')
+    }
+
+    await tryStartWebserver(0, progressCallback, onErrorStartup, onErrorLater, (url) => { })
+
   })
 
-  // Deny all permission requests
-  /*  session.defaultSession.setPermissionRequestHandler((_1, _2, callback) => {
-      callback(false)
-    })
-  */
-  createLoadingSplashScreen()
+  // Quit when all windows are closed.
+  app.on('window-all-closed', () => {
+    // On OS X it is common for applications and their menu bar
+    // to stay active until the user quits explicitly with Cmd + Q
+    // if (process.platform !== 'darwin') {
+    // }
+    // We overwrite the behaviour for now as it makes things easier
+    // remove all events
+    shutdown = true
 
-  const emitSpashEvent = async (event, data) => {
+    app.quit()
+  })
+
+  // App close handler, we want to kill shiny here and not on window close
+  app.on('before-quit', () => {
+    // kill the process
+    console.log('Killing R process...')
     try {
-      await loadingSplashScreen.webContents.send(event, data)
-    } catch (e) {}
-  }
-
-  // pass the loading events down to the loadingSplashScreen window
-  const progressCallback = async (event) => {
-    await emitSpashEvent('start-webserver-event', event)
-  }
-
-  const onErrorLater = async () => {
-    if (!mainWindow) { // fired when we quit the app
-      return
+      rShinyProcess.kill()
+    } catch (e) {
+      console.log(e)
     }
-    createErrorScreen()
-    await errorSplashScreen.show()
-    mainWindow.destroy()
-  }
+    log.info('Application stopped');
+  });
 
-  const onErrorStartup = async () => {
-    await waitFor(1000) // TODO: hack, only emit if the loading screen is ready
-    await emitSpashEvent('failed')
-  }
-
-  await tryStartWebserver(0, progressCallback, onErrorStartup, onErrorLater, (url) => {})
-
-})
-
-// Quit when all windows are closed.
-app.on('window-all-closed', () => {
-  // On OS X it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
-  // if (process.platform !== 'darwin') {
-  // }
-  // We overwrite the behaviour for now as it makes things easier
-  // remove all events
-  shutdown = true
-
-  app.quit()
-})
-
-// App close handler, we want to kill shiny here and not on window close
-app.on('before-quit', () => {
-  // kill the process
-  console.log('Killing R process...')
-  try {
-    rShinyProcess.kill()
-  } catch (e) {
-    console.log(e)
-  }
-  log.info('Application stopped');
-});
-
-
-
+}

@@ -28,14 +28,15 @@
 #' @param permission automatically grant permission to install nodejs and R 
 #' @param mac_url url to mac OS tar.gz 
 #' @param r_bitness The bitness of the R installation you want to use (i386 or x64)
-#' @param app_args Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting
+#' @param app_args Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. 
+#'                 These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting
 #' @param pandoc_version pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If blank, pandoc won't be installed
 #' @param r_version R version to install. If set to 'latest', the latest version will be installed
 #'
 #' @export
 #'
 electrify <- function(app_name = NULL,
-                      product_name = "product_name",
+                      product_name = app_name,
                       short_description = NULL,
                       semantic_version = NULL,
                       build_path = NULL,
@@ -218,7 +219,7 @@ electrify <- function(app_name = NULL,
                                           package = my_package_name,
                                           lib.loc = library_path)
   
-  if (nchar(electron_build_resources) == 0) {
+  if (nchar(electron_build_resources) != 0) {
     electron_build_resources <- base::list.files(electron_build_resources, 
                                                  full.names = TRUE)
     resources <- base::file.path(app_root_path, 
@@ -233,7 +234,8 @@ electrify <- function(app_name = NULL,
   electricShine::create_package_json(app_name = app_name,
                                      semantic_version = semantic_version,
                                      app_root_path = app_root_path,
-                                     description = "description")
+                                     description = short_description,
+                                     product_name = product_name)
   
   
   
