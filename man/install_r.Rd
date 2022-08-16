@@ -7,9 +7,10 @@
 install_r(
   cran_like_url = NULL,
   app_root_path,
- 
-    mac_url = "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
+  mac_url =
+    "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
   permission_to_install = FALSE,
+  r_version = "latest",
   bitness = "x64"
 )
 }
@@ -21,6 +22,8 @@ install_r(
 \item{mac_url}{mac R installer url}
 
 \item{permission_to_install}{have permission to install R?}
+
+\item{r_version}{R version to install. If set to 'latest', the latest version will be installed}
 }
 \description{
 Install R from MRAN date into electricShine folder

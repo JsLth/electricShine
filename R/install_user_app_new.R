@@ -7,6 +7,7 @@
 #' @param package_install_opts further arguments to remotes::install_github, install_gitlab, install_bitbucket, or install_local
 #' @param dependency_install_opts optional arguments to remotes::install_deps, if NULL then remotes will not pre-install dependencies
 #' @param r_bitness The bitness of the R installation you want to use (i386 or x64)
+#' @importFrom utils installed.packages
 #'
 #' @return App name
 

@@ -9,7 +9,8 @@ modify_background_js(
   my_package_name,
   function_name,
   r_path,
-  r_bitness
+  r_bitness = "x64",
+  app_args
 )
 }
 \arguments{
@@ -20,6 +21,10 @@ modify_background_js(
 \item{function_name}{function that runs your shiny app - (e.g. 'filter' in 'dplyr::filter()')}
 
 \item{r_path}{path from "r_lang" folder to the R/Rscript executable}
+
+\item{r_bitness}{bitness of R installation, only applicable before R 4.2.0}
+
+\item{app_args}{arguments to the function that runs your shiny app}
 }
 \value{
 none, side effect

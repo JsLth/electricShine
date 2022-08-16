@@ -15,7 +15,8 @@ create_package_json(
   copyright_name = "",
   website = "",
   license = "",
-  deps = NULL
+  deps = NULL,
+  product_name = app_name
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ create_package_json(
 \item{license}{license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)}
 
 \item{deps}{is to allow testing with testthat}
+
+\item{product_name}{The product name, often identical to the app name, but with spaces and some special characters allowed}
 }
 \value{
 outputs package.json file with user-input modifications

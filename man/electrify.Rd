@@ -5,10 +5,12 @@
 \title{Meta-function}
 \usage{
 electrify(
-  app_name = NULL,
-  product_name = "product_name",
-  short_description = NULL,
-  semantic_version = NULL,
+  app_name = pull_from_description("Package"),
+  product_name = pull_from_description("Title"),
+  short_description = pull_from_description("Description", postprocessing_function =
+    multiline_indented_to_single_line),
+  semantic_version = pull_from_description("Version", postprocessing_function =
+    r_ver_to_semver),
   build_path = NULL,
   mran_date = NULL,
   cran_like_url = NULL,
@@ -17,13 +19,23 @@ electrify(
   git_repo = NULL,
   local_package_path = NULL,
   package_install_opts = NULL,
+  dependency_install_opts = NULL,
+  include_remotes = FALSE,
   run_build = TRUE,
   nodejs_path = file.path(system.file(package = "electricShine"), "nodejs"),
   nodejs_version = "v12.16.2",
   permission = FALSE,
- 
-    mac_url = "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
-  r_bitness = c("x64", "i386")
+  mac_url =
+    "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
+  r_bitness = c("x64", "i386"),
+  app_args = "",
+  pandoc_version = NULL,
+  r_version = "latest",
+  author = pull_from_description("Authors@R", postprocessing_function =
+    r_authors_string_to_node_first_author),
+  website = pull_from_description("URL", postprocessing_function = function(x) sub(",.*",
+    "", x)),
+  license = pull_from_description("License")
 )
 }
 \arguments{
@@ -59,6 +71,10 @@ Can also use notation for commits/branch (i.e. "chasemc/demoapp@d81fff0).}
 
 \item{package_install_opts}{optional arguments passed to remotes::install_github, install_gitlab, install_bitbucket, or install_local}
 
+\item{dependency_install_opts}{optional arguments to remotes::install_deps, if NULL then remotes will not pre-install dependencies}
+
+\item{include_remotes}{Whether or not to copy remotes to the local package path}
+
 \item{run_build}{logical, whether to start the build process, helpful if you want to modify anthying before building}
 
 \item{nodejs_path}{path to nodejs}
@@ -68,6 +84,21 @@ Can also use notation for commits/branch (i.e. "chasemc/demoapp@d81fff0).}
 \item{permission}{automatically grant permission to install nodejs and R}
 
 \item{mac_url}{url to mac OS tar.gz}
+
+\item{r_bitness}{The bitness of the R installation you want to use (i386 or x64)}
+
+\item{app_args}{Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. 
+These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting}
+
+\item{pandoc_version}{pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If null, pandoc won't be installed}
+
+\item{r_version}{R version to install. If set to 'latest', the latest version will be installed}
+
+\item{author}{author of the app}
+
+\item{website}{website of app or company}
+
+\item{license}{license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)}
 }
 \description{
 Meta-function

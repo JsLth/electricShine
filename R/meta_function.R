@@ -30,15 +30,18 @@
 #' @param r_bitness The bitness of the R installation you want to use (i386 or x64)
 #' @param app_args Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. 
 #'                 These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting
-#' @param pandoc_version pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If blank, pandoc won't be installed
+#' @param pandoc_version pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If null, pandoc won't be installed
 #' @param r_version R version to install. If set to 'latest', the latest version will be installed
+#' @param author author of the app
+#' @param website website of app or company
+#' @param license license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)
 #'
 #' @export
 #'
-electrify <- function(app_name = NULL,
-                      product_name = app_name,
-                      short_description = NULL,
-                      semantic_version = NULL,
+electrify <- function(app_name = pull_from_description("Package"),
+                      product_name = pull_from_description("Title"),
+                      short_description = pull_from_description("Description", postprocessing_function = multiline_indented_to_single_line),
+                      semantic_version = pull_from_description("Version", postprocessing_function =  r_ver_to_semver),
                       build_path = NULL,
                       mran_date = NULL,
                       cran_like_url = NULL,
@@ -57,7 +60,10 @@ electrify <- function(app_name = NULL,
                       r_bitness = c("x64", "i386"),
                       app_args = "",
                       pandoc_version = NULL,
-                      r_version = "latest"
+                      r_version = "latest",
+                      author = pull_from_description("Authors@R", postprocessing_function = r_authors_string_to_node_first_author),
+                      website = pull_from_description("URL", postprocessing_function =  function(x) sub(",.*", "", x)),
+                      license = pull_from_description("License")
                       ){
   
   
@@ -209,7 +215,20 @@ electrify <- function(app_name = NULL,
                                                        r_bitness = r_bitness)
   }
   
-  
+
+  # Fill in arguments from DESCRIPTION --------------------------------------
+
+  formal_names <- names(formals())
+  descobj <- NULL
+  for(n in formal_names){
+    if(exists(n, inherits = FALSE)){
+      v <- get(n, inherits = FALSE)
+      if(inherits(v, "to_pull_from_description")){
+        if(is.null(descobj)) descobj <- desc::desc(file.path(library_path, my_package_name, "DESCRIPTION"))
+        assign(n, process_pull_from_description(v, descobj))
+      }
+    }
+  }
   
   # Transfer icons if present -----------------------------------------------
   
@@ -228,7 +247,6 @@ electrify <- function(app_name = NULL,
     base::file.copy(from = electron_build_resources,
                     to = resources)
   }
-  
   
   # Create package.json -----------------------------------------------------
   electricShine::create_package_json(app_name = app_name,

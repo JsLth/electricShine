@@ -9,7 +9,11 @@ install_user_app_new(
   repo_location = "github",
   repo = "chasemc/IDBacApp",
   repos = cran_like_url,
-  package_install_opts = NULL
+  package_install_opts = NULL,
+  dependency_install_opts = NULL,
+  r_bitness = "x64",
+  include_remotes = FALSE,
+  remotes_opts = NULL
 )
 }
 \arguments{
@@ -22,6 +26,10 @@ install_user_app_new(
 \item{repos}{cran like repository package dependencies will be retrieved from}
 
 \item{package_install_opts}{further arguments to remotes::install_github, install_gitlab, install_bitbucket, or install_local}
+
+\item{dependency_install_opts}{optional arguments to remotes::install_deps, if NULL then remotes will not pre-install dependencies}
+
+\item{r_bitness}{The bitness of the R installation you want to use (i386 or x64)}
 }
 \value{
 App name

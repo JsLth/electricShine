@@ -1,6 +1,7 @@
 
 #' Install from isolated lib
 #'
+#' @importFrom utils getFromNamespace
 #' @return na
 #' @export
 #'

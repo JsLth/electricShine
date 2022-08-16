@@ -4,10 +4,12 @@
 \alias{.find_win_exe_url}
 \title{Find Windows R installer URL from MRAN snapshot}
 \usage{
-.find_win_exe_url(cran_like_url = NULL)
+.find_win_exe_url(cran_like_url = NULL, r_version = "latest")
 }
 \arguments{
 \item{cran_like_url}{url to cran-like repository}
+
+\item{version}{R version to be used, 'latest' means: use the latest version}
 }
 \value{
 url for Windows R installer

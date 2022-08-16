@@ -29,11 +29,12 @@ const {
   app,
   session,
   BrowserWindow,
-  Menu
+  Menu,
+  dialog 
 } = require('electron');
 
 import path from "path";
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 
 const WINDOWS = "win32";
 const backgroundColor = '#2c3e50'
@@ -73,11 +74,14 @@ if (!gotTheLock) {
   app.quit()
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
-
-    // Someone tried to run a second instance, we should focus our window.
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
+    if(shutdown){
+      dialog.showMessageBox({message: 'Please wait a moment for the application to shut down before opening it again', type: 'warning'})
+    }else{
+      // Someone tried to run a second instance, we should focus our window.
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore()
+        mainWindow.focus()
+      }
     }
   })
 
@@ -103,6 +107,7 @@ if (!gotTheLock) {
   // use the onErrorStartup callback to react to a critical failure during startup
   // use the onErrorLater callback to handle the case when the R process dies
   // use onSuccess to retrieve the shinyUrl
+  // To-do: rewrite to single shot, starting Shiny should just work on the first try
   const tryStartWebserver = async (attempt, progressCallback, onErrorStartup,
     onErrorLater, onSuccess) => {
     if (attempt > 3) {
@@ -181,10 +186,12 @@ if (!gotTheLock) {
     let logRMessages = function (message, channel) {
       // Unfortunately, can't get IPC to work with Shiny, so we're passing base64 strings
       if (channel == 'stderr') {
-        const regexp = new RegExp("(?<=Listening on )http[\\S]*", "gm")
-        let connected_to_url = message.match(regexp);
-        if (connected_to_url != null & !shinyConnected) {
-          connectShiny(connected_to_url[0])
+        if(!shinyConnected){
+          const regexp = new RegExp("(?<=Listening on )http[\\S]*", "gm")
+          let connected_to_url = message.match(regexp);
+          if (connected_to_url != null) {
+            connectShiny(connected_to_url[0])
+          }
         }
         log.info('R stderr: ' + message) // R uses stderr for all normal messages
         if (shinyConnected) {
@@ -203,47 +210,40 @@ if (!gotTheLock) {
       return (null);
     }
 
-
-    rShinyProcess = exec('"' + NODER + '" -e "<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)"',
+    rShinyProcess = spawn(NODER, ['-e', '<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)'],
       {
         env: {
           //Necessary for letting R know where it is and ensure we're not using another R 
-          'WITHIN_ELECTRON': 'T', // can be used within an app to implement specific behaviour
+          'WITHIN_ELECTRON': 'TRUE', // can be used within an app to implement specific behaviour
           'RHOME': rResources,
           'R_HOME_DIR': rResources,
           'R_LIBS': path.join(rResources, "library"),
           'R_LIBS_USER': path.join(rResources, "library"),
           'R_LIBS_SITE': path.join(rResources, "library"),
           'R_LIB_PATHS': path.join(rResources, "library")
-        }
+        },
+        detached: true
       },
-      (error, stdout, stderr) => {
-        if (error) {
-          console.error(`exec error: ${error}`);
-          return;
-        }
-        console.log(`stdout: ${stdout}`);
-        console.error(`stderr: ${stderr}`);
-      }
     )
-    rShinyProcess.stderr.on('readable', function () {
-      // There is some data to read now.
-      let data;
-
-      while (data = this.read()) {
-        logRMessages(data, 'stderr');
-      }
+    
+    rShinyProcess.stderr.setEncoding('utf8');
+    rShinyProcess.stderr.on('data', function (data) {
+      logRMessages(data, 'stderr');
     });
-    rShinyProcess.stdout.on('readable', function () {
-      // There is some data to read now.
-      let data;
-
-      while (data = this.read()) {
-        logRMessages(data, 'stdout');
-      }
+    rShinyProcess.stdout.setEncoding('utf8');
+    rShinyProcess.stdout.on('data', function (data) {
+      logRMessages(data, 'stdout');
     });
-
-
+    rShinyProcess.on('exit', (code, signal)=>{
+      log.error("R Shiny quit unexpectedly with code " + code + " and signal " + signal)
+      app.releaseSingleInstanceLock()
+      dialog.showMessageBoxSync({
+        message: "The R Shiny process quit unexpectedly.\nCheck the logs under  %USERPROFILE%\\AppData\\Roaming\\" + app.getName() + "\\main.log",
+        type: "error",
+        title: "The R Shiny process quit unexpectedly"
+      })
+      app.quit()
+    })
 
     await progressCallback({
       attempt: attempt,
@@ -322,6 +322,7 @@ if (!gotTheLock) {
     }
 
     // pass the loading events down to the loadingSplashScreen window
+    // To do: fix this...
     const progressCallback = async (event) => {
       await emitSpashEvent('start-webserver-event', event)
     }
@@ -357,15 +358,9 @@ if (!gotTheLock) {
     app.quit()
   })
 
-  // App close handler, we want to kill shiny here and not on window close
+  // App close handler
   app.on('before-quit', () => {
-    // kill the process
-    console.log('Killing R process...')
-    try {
-      rShinyProcess.kill()
-    } catch (e) {
-      console.log(e)
-    }
+
     log.info('Application stopped');
   });
 
