@@ -253,7 +253,10 @@ electrify <- function(app_name = pull_from_description("Package"),
                                      semantic_version = semantic_version,
                                      app_root_path = app_root_path,
                                      description = short_description,
-                                     product_name = product_name)
+                                     product_name = product_name,
+                                     author = author,
+                                     website = website,
+                                     license = license)
   
   
   
