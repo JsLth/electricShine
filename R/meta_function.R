@@ -35,10 +35,11 @@
 #' @param author author of the app
 #' @param website website of app or company
 #' @param license license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)
+#' @param include_rtools Whether or not to include RTools. Requires installr to install. Will increase app size substantially
 #'
 #' @export
 #'
-electrify <- function(app_name = pull_from_description("Package"),
+electrify <- function(app_name,
                       product_name = pull_from_description("Title"),
                       short_description = pull_from_description("Description", postprocessing_function = multiline_indented_to_single_line),
                       semantic_version = pull_from_description("Version", postprocessing_function =  r_ver_to_semver),
@@ -63,7 +64,8 @@ electrify <- function(app_name = pull_from_description("Package"),
                       r_version = "latest",
                       author = pull_from_description("Authors@R", postprocessing_function = r_authors_string_to_node_first_author),
                       website = pull_from_description("URL", postprocessing_function =  function(x) sub(",.*", "", x)),
-                      license = pull_from_description("License")
+                      license = pull_from_description("License"),
+                      include_rtools = FALSE
                       ){
   
   
@@ -187,6 +189,9 @@ electrify <- function(app_name = pull_from_description("Package"),
     get_Pandoc(app_root_path, pandoc_version)
     add_rstudio_pandoc_to_rprofile_site(app_root_path)
   }
+  
+  # Install rtools -----
+  if(include_rtools) install_rtools(app_root_path, r_bitness)
   
   # Install shiny app/package and dependencies ------------------------------
   

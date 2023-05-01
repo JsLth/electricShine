@@ -165,7 +165,7 @@ install_r <- function(cran_like_url = NULL,
   quoted_win_installer_path <- base::shQuote(win_installer_path)
   
   # install R
-  base::system(glue::glue("{quoted_win_installer_path} /SILENT /DIR={quoted_install_r_to_path} /components=\"\"main,{bitness},translations\"\""))
+  base::system(glue::glue("{quoted_win_installer_path} /SILENT /CURRENTUSER /DIR={quoted_install_r_to_path} /components=\"\"main,{bitness},translations\"\" /NOICONS"))
   
   return(install_r_to_path)
 }

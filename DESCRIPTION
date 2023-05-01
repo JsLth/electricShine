@@ -9,7 +9,13 @@ Authors@R: c(
     person(given = "Belinda",
            family = "Chen",
            role = c("ctb"),
-           email = "belinda-zo@hotmail.com")
+           email = "belinda-zo@hotmail.com"),
+    person(given = "Erik",
+           family = "von Asmuth",
+           role = c("aut", "cre"),
+           email = "e.g.j.von_asmuth@lumc.nl",
+           comment = c(ORCID = "0000-0001-6256-7457")
+           )
            )
 Description: A tool for turning Shiny apps (written as packages) into distributable Electron apps.
 License: MIT + file LICENSE
@@ -27,8 +33,9 @@ Suggests:
     testthat (>= 2.1.0),
     covr,
     knitr,
-    rmarkdown
+    rmarkdown,
+    installr
 VignetteBuilder: knitr
-URL: https://github.com/chasemc/electricShine
-BugReports: https://github.com/chasemc/electricShine/issues
+URL: https://github.com/erikvona/electricShine
+BugReports: https://github.com/erikvona/electricShine/issues
 RoxygenNote: 7.2.1
