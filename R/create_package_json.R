@@ -70,8 +70,7 @@ create_package_json <- function(app_name = "MyApp",
       e2e = "mocha temp/e2e.js --require source-map-support/register",
       test = "npm run unit && npm run e2e",
       start = "node build/start.js",
-      `build:macos` = "electron-builder --macos --dir && npm run build:mac", # force mac
-      release = "npm test && webpack --config=build/webpack.app.config.js --env=production && electron-builder -wl"
+      release = "npm test && webpack --config=build/webpack.app.config.js --env=production && electron-builder"
     )
   )
 
