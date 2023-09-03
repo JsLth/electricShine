@@ -23,10 +23,11 @@ create_package_json <- function(app_name = "MyApp",
                                 app_root_path = NULL,
                                 repository = "",
                                 author = "",
-                                copyright_year = "",
-                                copyright_name = "",
+                                copyright = "",
                                 website = "",
                                 license = "",
+                                keywords = "",
+                                platforms = list(),
                                 deps = NULL,
                                 product_name = app_name){
 
@@ -36,52 +37,66 @@ create_package_json <- function(app_name = "MyApp",
   if (is.null(deps)) {
   # get package.json dependencies
     # [-1] remove open { necessary for automated dependency checker
-  deps <- readLines(system.file("template/package.json", package = "electricShine"))[-1]
-  deps <- paste0(deps, collapse = "\n")
+    deps = jsonlite::read_json(system.file("template/package.json", package = "electricShine"))
   }
 
-  file <- glue::glue(
-'
-{
-  "name": "<<app_name>>",
-  "productName": "<<product_name>>",
-  "description": "<<description>>",
-  "version": "<<semantic_version>>",
-  "private": true,
-  "author": "<<author>>",
-  "copyright": "<<copyright_year>> <<copyright_name>>",
-  "license": "<<license>>",
-  "homepage": "<<website>>",
-  "main": "app/background.js",
-  "build": {
-  "appId": "com.<<app_name>>",
-  "files": [
-  "app/**/*",
-  "node_modules/**/*",
-  "package.json"
-  ],
-  "directories": {
-  "buildResources": "resources"
-  },
-  "publish": null,
-  "asar": false
-  },
-  "scripts": {
-  "postinstall": "electron-builder install-app-deps",
-  "preunit": "webpack --config=build/webpack.unit.config.js --env=test",
-  "unit": "electron-mocha temp/specs.js --renderer --require source-map-support/register",
-  "pree2e": "webpack --config=build/webpack.app.config.js --env=test && webpack --config=build/webpack.e2e.config.js --env=test",
-  "e2e": "mocha temp/e2e.js --require source-map-support/register",
-  "test": "npm run unit && npm run e2e",
-  "start": "node build/start.js",
-  "release": "npm test && webpack --config=build/webpack.app.config.js --env=production && electron-builder"
-  },
- <<deps>>
+  opts <- list(
+    name = app_name,
+    productName = product_name,
+    description = description,
+    version = semantic_version,
+    private = TRUE,
+    author = author,
+    copyright = copyright,
+    license = license,
+    homepage = website,
+    main = "app/background.js",
+    keywords = keywords,
+    build = list(
+      appId = paste0("com.", app_name),
+      files = c("app/**/*", "node_modules/**/*", "package.json"),
+      directories = list(buildResources = "resources"),
+      publish = NULL,
+      asar = FALSE,
+      win = platforms$win,
+      mac = platforms$mac,
+      linux = platforms$linux
+    ),
+    scripts = list(
+      postinstall = "electron-builder install-app-deps",
+      preunit = "webpack --config=build/webpack.unit.config.js --env=test",
+      unit = "electron-mocha temp/specs.js --renderer --require source-map-support/register",
+      pree2e = "webpack --config=build/webpack.app.config.js --env=test && webpack --config=build/webpack.e2e.config.js --env=test",
+      e2e = "mocha temp/e2e.js --require source-map-support/register",
+      test = "npm run unit && npm run e2e",
+      start = "node build/start.js",
+      `build:macos` = "electron-builder --macos --dir && npm run build:mac", # force mac
+      release = "npm test && webpack --config=build/webpack.app.config.js --env=production && electron-builder -wl"
+    )
+  )
 
-',  .open = "<<", .close = ">>")
+  opts <- c(opts, deps)
 
-  electricShine::write_text(text = file,
-                            filename = "package.json",
-                            path = app_root_path)
+  if (!"win" %in% names(platforms)) {
+    opts$build$win <- NULL
+  }
 
+  if (!"mac" %in% names(platforms)) {
+    opts$build$mac <- NULL
+    opts$scripts$`build:macos` <- NULL
+  }
+
+  if (!"linux" %in% names(platforms)) {
+    opts$build$linux <- NULL
+  }
+
+  file_name <- file.path(app_root_path, "package.json")
+
+  jsonlite::write_json(
+    opts,
+    path = file_name,
+    null = "null",
+    auto_unbox = TRUE,
+    pretty = TRUE
+  )
 }
