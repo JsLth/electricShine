@@ -5,12 +5,10 @@
 \title{Meta-function}
 \usage{
 electrify(
-  app_name = pull_from_description("Package"),
-  product_name = pull_from_description("Title"),
-  short_description = pull_from_description("Description", postprocessing_function =
-    multiline_indented_to_single_line),
-  semantic_version = pull_from_description("Version", postprocessing_function =
-    r_ver_to_semver),
+  app_name,
+  product_name = NULL,
+  short_description = NULL,
+  semantic_version = NULL,
   build_path = NULL,
   mran_date = NULL,
   cran_like_url = NULL,
@@ -22,26 +20,28 @@ electrify(
   dependency_install_opts = NULL,
   include_remotes = FALSE,
   run_build = TRUE,
-  nodejs_path = file.path(system.file(package = "electricShine"), "nodejs"),
+  nodejs_path = NULL,
   nodejs_version = "v12.16.2",
   permission = FALSE,
-  mac_url =
-    "https://mac.r-project.org/el-capitan/R-3.6-branch/R-3.6-branch-el-capitan-sa-x86_64.tar.gz",
+  mac_url = NULL,
   r_bitness = c("x64", "i386"),
   app_args = "",
   pandoc_version = NULL,
   r_version = "latest",
-  author = pull_from_description("Authors@R", postprocessing_function =
-    r_authors_string_to_node_first_author),
-  website = pull_from_description("URL", postprocessing_function = function(x) sub(",.*",
-    "", x)),
-  license = pull_from_description("License")
+  copyright = "",
+  author = NULL,
+  website = NULL,
+  license = NULL,
+  keywords = "electron-app",
+  include_rtools = FALSE,
+  platforms = list(),
+  deps = NULL
 )
 }
 \arguments{
 \item{app_name}{This will be the name of the executable. It's a uniform type identifier (UTI)
 that contains only alphanumeric (A-Z,a-z,0-9), hyphen (-), and period (.) characters.
-see https://www.electron.build/configuration/configuration 
+see https://www.electron.build/configuration/configuration
 and https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html#//apple_ref/doc/uid/20001431-102070}
 
 \item{product_name}{String - allows you to specify a product name for your executable which
@@ -64,7 +64,7 @@ Must not contain a folder with the name as what you put for electrify(app_name).
 
 \item{git_host}{one of c("github", "gitlab", "bitbucket")}
 
-\item{git_repo}{GitHub/Bitbucket/GitLab username/repo of your the shiny-app package (e.g. 'chasemc/demoAPP'). 
+\item{git_repo}{GitHub/Bitbucket/GitLab username/repo of your the shiny-app package (e.g. 'chasemc/demoAPP').
 Can also use notation for commits/branch (i.e. "chasemc/demoapp@d81fff0).}
 
 \item{local_package_path}{path to local shiny-app package, if 'git_package' isn't used}
@@ -87,7 +87,7 @@ Can also use notation for commits/branch (i.e. "chasemc/demoapp@d81fff0).}
 
 \item{r_bitness}{The bitness of the R installation you want to use (i386 or x64)}
 
-\item{app_args}{Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port. 
+\item{app_args}{Quoted arguments to the Shiny app, for example `"options = list(port = 1010)"` to set a fixed port.
 These are inserted into a JS string then quoted and executed through shell, so keep in mind complex quoting}
 
 \item{pandoc_version}{pandoc version to install, as in `as.character(rmarkdown::pandoc_version())`. If null, pandoc won't be installed}
@@ -99,6 +99,14 @@ These are inserted into a JS string then quoted and executed through shell, so k
 \item{website}{website of app or company}
 
 \item{license}{license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)}
+
+\item{keywords}{Keywords describing the app}
+
+\item{include_rtools}{Whether or not to include RTools. Requires installr to install. Will increase app size substantially}
+
+\item{platforms}{Named list containing build instructions for `win`, `mac` and `linux`}
+
+\item{deps}{Named list containing Node.js dependencies}
 }
 \description{
 Meta-function

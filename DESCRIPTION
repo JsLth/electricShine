@@ -38,4 +38,4 @@ Suggests:
 VignetteBuilder: knitr
 URL: https://github.com/erikvona/electricShine
 BugReports: https://github.com/erikvona/electricShine/issues
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3

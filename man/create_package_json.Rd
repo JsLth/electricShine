@@ -11,10 +11,11 @@ create_package_json(
   app_root_path = NULL,
   repository = "",
   author = "",
-  copyright_year = "",
-  copyright_name = "",
+  copyright = "",
   website = "",
   license = "",
+  keywords = "",
+  platforms = list(),
   deps = NULL,
   product_name = app_name
 )
@@ -32,10 +33,6 @@ create_package_json(
 
 \item{author}{author of the app}
 
-\item{copyright_year}{year of copyright}
-
-\item{copyright_name}{copyright-holder's name}
-
 \item{website}{website of app or company}
 
 \item{license}{license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)}
@@ -43,6 +40,10 @@ create_package_json(
 \item{deps}{is to allow testing with testthat}
 
 \item{product_name}{The product name, often identical to the app name, but with spaces and some special characters allowed}
+
+\item{copyright_year}{year of copyright}
+
+\item{copyright_name}{copyright-holder's name}
 }
 \value{
 outputs package.json file with user-input modifications
