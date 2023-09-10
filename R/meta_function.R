@@ -12,13 +12,7 @@
 #' @param semantic_version semantic version of your app, as character (not numeric!);
 #'     See https://semver.org/ for more info on semantic versioning.
 #' @param mran_date MRAN snapshot date, formatted as 'YYYY-MM-DD'
-#' @param git_host one of c("github", "gitlab", "bitbucket")
-#' @param git_repo GitHub/Bitbucket/GitLab username/repo of your the shiny-app package (e.g. 'chasemc/demoAPP').
-#'     Can also use notation for commits/branch (i.e. "chasemc/demoapp@@d81fff0).
 #' @param local_package_path path to local shiny-app package, if 'git_package' isn't used
-#' @param package_install_opts optional arguments passed to remotes::install_github, install_gitlab, install_bitbucket, or install_local
-#' @param dependency_install_opts optional arguments to remotes::install_deps, if NULL then remotes will not pre-install dependencies
-#' @param include_remotes Whether or not to copy remotes to the local package path
 #' @param function_name the function name in your package that starts the shiny app
 #' @param run_build logical, whether to start the build process, helpful if you want to modify anthying before building
 #' @param short_description short app description
@@ -43,6 +37,7 @@
 #' @export
 #'
 electrify <- function(app_name,
+                      pkg,
                       product_name = NULL,
                       short_description = NULL,
                       semantic_version = NULL,
@@ -50,12 +45,7 @@ electrify <- function(app_name,
                       mran_date = NULL,
                       cran_like_url = NULL,
                       function_name = NULL,
-                      git_host = NULL,
-                      git_repo = NULL,
-                      local_package_path = NULL,
-                      package_install_opts = NULL,
-                      dependency_install_opts = NULL,
-                      include_remotes = FALSE,
+                      include_pak = FALSE,
                       run_build = TRUE,
                       nodejs_path = NULL,
                       nodejs_version = "v12.16.2",
@@ -117,9 +107,9 @@ electrify <- function(app_name,
   .check_build_path_exists(build_path = build_path)
 
 
-  .check_package_provided(git_host = git_host,
-                          git_repo = git_repo,
-                          local_package_path = local_package_path)
+  #.check_package_provided(git_host = git_host,
+  #                        git_repo = git_repo,
+  #                        local_package_path = local_package_path)
 
   if (is.null(app_name)) {
     stop("electricShine::electrify() requires you to provide an 'app_name' argument specifying
@@ -140,12 +130,6 @@ electrify <- function(app_name,
 
   if (is.null(nodejs_path)) {
     file.path(system.file(package = "electricShine"), "nodejs")
-  }
-
-  if (!is.null(package_install_opts)) {
-    if (!is.list(package_install_opts)) {
-      stop("package_install_opts in electrify() must be a list of arguments.")
-    }
   }
 
   app_root_path <- file.path(build_path,
@@ -231,33 +215,16 @@ electrify <- function(app_name,
   # Install shiny app/package and dependencies ------------------------------
 
 
-  if (!base::is.null(git_host)) {
-
-    my_package_name <-  electricShine::install_user_app_new(library_path = library_path,
-                                                        repo_location = git_host,
-                                                        repo = git_repo,
-                                                        repos = cran_like_url,
-                                                        package_install_opts = package_install_opts,
-                                                        include_remotes = include_remotes,
-                                                        r_bitness = r_bitness)
-  }
-
-
-  if (!is.null(local_package_path)) {
-
-    my_package_name <- electricShine::install_user_app_new(library_path = library_path ,
-                                                       repo_location = "local",
-                                                       repo = local_package_path,
-                                                       repos = cran_like_url,
-                                                       package_install_opts = package_install_opts,
-                                                       dependency_install_opts = dependency_install_opts,
-                                                       include_remotes = include_remotes,
-                                                       r_bitness = r_bitness)
-  }
+  my_package_name <- electricShine::install_user_app_new(
+    repo = pkg,
+    library_path = library_path,
+    include_pak = include_pak,
+    r_bitness = r_bitness
+  )
 
 
   # Fill in arguments from DESCRIPTION --------------------------------------
-
+browser()
   formal_names <- names(formals())
   descobj <- NULL
   for (n in formal_names) {
