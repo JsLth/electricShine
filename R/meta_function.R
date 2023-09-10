@@ -37,8 +37,11 @@
 #' @param license license of the App. Not the full license, only the title (e.g. MIT, or GPLv3)
 #' @param keywords Keywords describing the app
 #' @param include_rtools Whether or not to include RTools. Requires installr to install. Will increase app size substantially
+#' @param conda_env miniconda environment to install
+#' @param conda_force Force miniconda to install even if a prior installation is found.
 #' @param platforms Named list containing build instructions for `win`, `mac` and `linux`
 #' @param deps Named list containing Node.js dependencies
+#' @param ... Further arguments for miniconda installation
 #'
 #' @export
 #'
@@ -52,7 +55,6 @@ electrify <- function(app_name,
                       function_name = NULL,
                       git_host = NULL,
                       git_repo = NULL,
-                      local_package_path = NULL,
                       package_install_opts = NULL,
                       dependency_install_opts = NULL,
                       include_remotes = FALSE,
@@ -71,8 +73,11 @@ electrify <- function(app_name,
                       license = NULL,
                       keywords = "electron-app",
                       include_rtools = FALSE,
+                      conda_env = "eshine",
+                      conda_force = TRUE,
                       platforms = list(),
-                      deps = NULL) {
+                      deps = NULL,
+                      ...) {
 
 
 
@@ -111,59 +116,57 @@ electrify <- function(app_name,
   }
 
   .check_arch()
-  .check_repo_set(cran_like_url = cran_like_url,
-                  mran_date = mran_date)
-
-  .check_build_path_exists(build_path = build_path)
-
-
-  .check_package_provided(git_host = git_host,
-                          git_repo = git_repo,
-                          local_package_path = local_package_path)
-
-  if (is.null(app_name)) {
-    stop("electricShine::electrify() requires you to provide an 'app_name' argument specifying
-         the shiny app/package name.")
-  }
-
-  if (is.null(semantic_version)) {
-    stop("electricShine::electrify() requires you to specify a 'semantic_version' argument.
-           (e.g. electricShine::electricShine(semantic_version = '1.0.0') )")
-  }
-
-  if (is.null(function_name)) {
-    stop("electricShine::electrify() requires you to specify a 'function_name' argument.
-         function_name should be the name of the function that starts your package's shiny app.
-         e.g. is you have the function myPackage::start_shiny(), provide 'start_shiny'")
-  }
-
-
-  if (is.null(nodejs_path)) {
-    file.path(system.file(package = "electricShine"), "nodejs")
-  }
-
-  if (!is.null(package_install_opts)) {
-    if (!is.list(package_install_opts)) {
-      stop("package_install_opts in electrify() must be a list of arguments.")
-    }
-  }
+  # .check_repo_set(cran_like_url = cran_like_url,
+  #                 mran_date = mran_date)
+  #
+  # .check_build_path_exists(build_path = build_path)
+  #
+  #
+  # .check_package_provided(git_host = git_host,
+  #                         git_repo = git_repo,
+  #                         local_package_path = local_package_path)
+  #
+  # if (is.null(app_name)) {
+  #   stop("electricShine::electrify() requires you to provide an 'app_name' argument specifying
+  #        the shiny app/package name.")
+  # }
+  #
+  # if (is.null(semantic_version)) {
+  #   stop("electricShine::electrify() requires you to specify a 'semantic_version' argument.
+  #          (e.g. electricShine::electricShine(semantic_version = '1.0.0') )")
+  # }
+  #
+  # if (is.null(function_name)) {
+  #   stop("electricShine::electrify() requires you to specify a 'function_name' argument.
+  #        function_name should be the name of the function that starts your package's shiny app.
+  #        e.g. is you have the function myPackage::start_shiny(), provide 'start_shiny'")
+  # }
+  #
+  #
+  # if (is.null(nodejs_path)) {
+  #   file.path(system.file(package = "electricShine"), "nodejs")
+  # }
+  #
+  # if (!is.null(package_install_opts)) {
+  #   if (!is.list(package_install_opts)) {
+  #     stop("package_install_opts in electrify() must be a list of arguments.")
+  #   }
+  # }
 
   app_root_path <- file.path(build_path,
                              app_name)
 
-  if (!isTRUE(permission)) {
-
-    permission_to_install_r <- .prompt_install_r(app_root_path)
-    permission_to_install_nodejs <- .prompt_install_nodejs(nodejs_path)
-
-  } else {
-    permission_to_install_r <- TRUE
-    permission_to_install_nodejs <- TRUE
-
-  }
+  # if (!isTRUE(permission)) {
+  #
+  #   permission_to_install_r <- .prompt_install_r(app_root_path)
+  #   permission_to_install_nodejs <- .prompt_install_nodejs(nodejs_path)
+  #
+  # } else {
+  #   permission_to_install_r <- TRUE
+  #   permission_to_install_nodejs <- TRUE
+  #
+  # }
   # Determine Operating System ----------------------------------------------
-
-  os <- electricShine::get_os()
 
   # Set cran_like_url -------------------------------------------------------
 
@@ -171,169 +174,231 @@ electrify <- function(app_name,
   cran_like_url <- construct_mran_url(mran_date = mran_date,
                                       cran_like_url = cran_like_url)
 
-  r_bitness = match.arg(r_bitness)
-
-  # Create top-level build folder for app  ----------------------------------
-
-
   electricShine::create_folder(app_root_path)
 
   # Copy Electron template into app_root_path -------------------------------------
+
   electricShine::copy_template(app_root_path)
 
-  # Download and Install R --------------------------------------------------
-  electricShine::install_r(cran_like_url = cran_like_url,
-                           app_root_path = app_root_path,
-                           mac_url = mac_url,
-                           permission_to_install = permission_to_install_r,
-                           bitness = r_bitness,
-                           r_version = r_version)
+  os <- electricShine::get_os()
 
-  # Trim R's size -----------------------------------------------------------
-  electricShine::trim_r(app_root_path = app_root_path)
-
-
-
-  # Find Electron app's R's library folder ----------------------------------
-
-  if (identical(os, "win")) {
-
-    library_path <- base::file.path(app_root_path,
-                                    "app",
-                                    "r_lang",
-                                    "library",
-                                    fsep = "/")
+  temp <- tempdir()
+  if (!dir.exists(temp)) {
+    dir.create(temp)
   }
+  temp <- file.path(temp, "conda_top_dir")
+  temp <- normalizePath(temp,
+                        winslash = "/",
+                        mustWork = FALSE # previous command adds extra slash so not true path (at least on mac)
+  )
+  dir.create(temp)
 
-  if (identical(os, "mac")) {
+  # install miniconda
+  conda_top_dir <- reticulate::install_miniconda(path = temp, force = conda_force)
 
-    library_path <- file.path(app_root_path,
-                              "app/r_lang/Library/Frameworks/R.framework/Versions")
+  conda_create_env(conda_top_dir = conda_top_dir, conda_env = conda_env)
 
-    library_path <-  list.dirs(library_path,
-                               recursive = FALSE)
+  conda_install_r(conda_top_dir = conda_top_dir,
+                  conda_env = conda_env,
+                  conda_repo = "conda-forge")
 
-    library_path <- library_path[grep("\\d+\\.(?:\\d+|x)(?:\\.\\d+|x){0,1}",
-                                      library_path)][[1]]
+  conda_pack_env <- "conda-pack"
+  conda_create_env(conda_top_dir = conda_top_dir,
+                   conda_env = conda_pack_env)
 
-    library_path <- file.path(library_path, "Resources/library", fsep = "/")
-  }
+  conda_install_pack(conda_top_dir = conda_top_dir,
+                     conda_env = conda_pack_env,
+                     conda_repo = "conda-forge")
 
-  # Install pandoc -----
-  if (!is.null(pandoc_version)) {
-    get_Pandoc(app_root_path, pandoc_version)
-    add_rstudio_pandoc_to_rprofile_site(app_root_path)
-  }
+  install_r_remotes(conda_top_dir = conda_top_dir,
+                    r_package_repo = cran_like_url,
+                    conda_env = conda_env)
 
-  # Install rtools -----
-  if (include_rtools) install_rtools(app_root_path, r_bitness)
+  install_remote_package(conda_top_dir = conda_top_dir,
+                         conda_env = conda_env,
+                         repo_location = git_repo,
+                         repo = git_host,
+                         dependencies_repo = cran_like_url,
+                         package_install_opts = package_install_opts)
 
-  # Install shiny app/package and dependencies ------------------------------
+  conda_pack_dir <- normalizePath(tempdir())
 
+  conda_pack(conda_top_dir = conda_top_dir,
+             conda_env = conda_env,
+             conda_pack_env = "conda-pack",
+             outdir = conda_pack_dir)
 
-  if (!base::is.null(git_host)) {
+  conda_pack_gz <- file.path(conda_pack_dir, paste0(conda_env, ".tar.gz"))
+  conda_pack_gz <- normalizePath(conda_pack_gz, mustWork = F)
 
-    my_package_name <-  electricShine::install_user_app_new(library_path = library_path,
-                                                        repo_location = git_host,
-                                                        repo = git_repo,
-                                                        repos = cran_like_url,
-                                                        package_install_opts = package_install_opts,
-                                                        include_remotes = include_remotes,
-                                                        r_bitness = r_bitness)
-  }
+  conda_build_pack <- file.path(build_path,app_name,"build", "pub_conda")
+  dir.create(conda_build_pack, recursive = T)
 
+  untar(tarfile = conda_pack_gz, exdir = conda_build_pack)
 
-  if (!is.null(local_package_path)) {
-
-    my_package_name <- electricShine::install_user_app_new(library_path = library_path ,
-                                                       repo_location = "local",
-                                                       repo = local_package_path,
-                                                       repos = cran_like_url,
-                                                       package_install_opts = package_install_opts,
-                                                       dependency_install_opts = dependency_install_opts,
-                                                       include_remotes = include_remotes,
-                                                       r_bitness = r_bitness)
-  }
-
-
-  # Fill in arguments from DESCRIPTION --------------------------------------
-
-  formal_names <- names(formals())
-  descobj <- NULL
-  for (n in formal_names) {
-    if (exists(n, inherits = FALSE)) {
-      v <- get(n, inherits = FALSE)
-      if (inherits(v, "to_pull_from_description")) {
-        if (is.null(descobj)) descobj <- desc::desc(file.path(library_path, my_package_name, "DESCRIPTION"))
-        assign(n, process_pull_from_description(v, descobj))
-      }
-    }
-  }
-
-  # Transfer icons if present -----------------------------------------------
-
-
-  electron_build_resources <- system.file("extdata",
-                                          "icon",
-                                          package = my_package_name,
-                                          lib.loc = library_path)
-
-  if (nchar(electron_build_resources) != 0) {
-    electron_build_resources <- base::list.files(electron_build_resources,
-                                                 full.names = TRUE)
-    resources <- base::file.path(app_root_path, "resources")
-    base::dir.create(resources)
-    base::file.copy(from = electron_build_resources, to = resources)
-  }
-
-  # Create package.json -----------------------------------------------------
-  electricShine::create_package_json(app_name = app_name,
-                                     semantic_version = semantic_version,
-                                     app_root_path = app_root_path,
-                                     description = short_description,
-                                     product_name = product_name,
-                                     author = author,
-                                     copyright = copyright,
-                                     website = website,
-                                     keywords = keywords,
-                                     license = license,
-                                     deps = deps)
-
-
-
-  # Add function that runs the shiny app to description.js ------------------
-  electricShine::modify_background_js(background_js_path = file.path(app_root_path,
-                                                                     "src",
-                                                                     "background.js"),
-                                      my_package_name = my_package_name,
-                                      function_name = function_name,
-                                      r_path = base::dirname(library_path),
-                                      r_bitness = r_bitness,
-                                      app_args = app_args)
-
-
-  # Download and unzip nodejs -----------------------------------------------
-
-  nodejs_path <- electricShine::install_nodejs(node_url = "https://nodejs.org/dist",
-                                               nodejs_path = nodejs_path,
-                                               force_install = FALSE,
-                                               nodejs_version = nodejs_version,
-                                               permission_to_install = permission_to_install_nodejs)
-
-
-  # Build the electron app --------------------------------------------------
-  if (run_build == TRUE) {
-
-    electricShine::run_build_release(nodejs_path = nodejs_path,
-                                     app_path = app_root_path,
-                                     nodejs_version = nodejs_version)
-
-    message("You should now have both a transferable and distributable installer Electron app.")
-
-  } else {
-
-    message("Build step was skipped. When you are ready to build the distributable run 'electricShine::runBuild(...)'")
-
-  }
+  # r_bitness = match.arg(r_bitness)
+  #
+  # # Create top-level build folder for app  ----------------------------------
+  #
+  #
+  # electricShine::create_folder(app_root_path)
+  #
+  # # Copy Electron template into app_root_path -------------------------------------
+  # electricShine::copy_template(app_root_path)
+  #
+  # # Download and Install R --------------------------------------------------
+  # electricShine::install_r(cran_like_url = cran_like_url,
+  #                          app_root_path = app_root_path,
+  #                          mac_url = mac_url,
+  #                          permission_to_install = permission_to_install_r,
+  #                          bitness = r_bitness,
+  #                          r_version = r_version)
+  #
+  # # Trim R's size -----------------------------------------------------------
+  # electricShine::trim_r(app_root_path = app_root_path)
+  #
+  #
+  #
+  # # Find Electron app's R's library folder ----------------------------------
+  #
+  # if (identical(os, "win")) {
+  #
+  #   library_path <- base::file.path(app_root_path,
+  #                                   "app",
+  #                                   "r_lang",
+  #                                   "library",
+  #                                   fsep = "/")
+  # }
+  #
+  # if (identical(os, "mac")) {
+  #
+  #   library_path <- file.path(app_root_path,
+  #                             "app/r_lang/Library/Frameworks/R.framework/Versions")
+  #
+  #   library_path <-  list.dirs(library_path,
+  #                              recursive = FALSE)
+  #
+  #   library_path <- library_path[grep("\\d+\\.(?:\\d+|x)(?:\\.\\d+|x){0,1}",
+  #                                     library_path)][[1]]
+  #
+  #   library_path <- file.path(library_path, "Resources/library", fsep = "/")
+  # }
+  #
+  # # Install pandoc -----
+  # if (!is.null(pandoc_version)) {
+  #   get_Pandoc(app_root_path, pandoc_version)
+  #   add_rstudio_pandoc_to_rprofile_site(app_root_path)
+  # }
+  #
+  # # Install rtools -----
+  # if (include_rtools) install_rtools(app_root_path, r_bitness)
+  #
+  # # Install shiny app/package and dependencies ------------------------------
+  #
+  #
+  # if (!base::is.null(git_host)) {
+  #
+  #   my_package_name <-  electricShine::install_user_app_new(library_path = library_path,
+  #                                                       repo_location = git_host,
+  #                                                       repo = git_repo,
+  #                                                       repos = cran_like_url,
+  #                                                       package_install_opts = package_install_opts,
+  #                                                       include_remotes = include_remotes,
+  #                                                       r_bitness = r_bitness)
+  # }
+  #
+  #
+  # if (!is.null(local_package_path)) {
+  #
+  #   my_package_name <- electricShine::install_user_app_new(library_path = library_path ,
+  #                                                      repo_location = "local",
+  #                                                      repo = local_package_path,
+  #                                                      repos = cran_like_url,
+  #                                                      package_install_opts = package_install_opts,
+  #                                                      dependency_install_opts = dependency_install_opts,
+  #                                                      include_remotes = include_remotes,
+  #                                                      r_bitness = r_bitness)
+  # }
+  #
+  #
+  # # Fill in arguments from DESCRIPTION --------------------------------------
+  #
+  # formal_names <- names(formals())
+  # descobj <- NULL
+  # for (n in formal_names) {
+  #   if (exists(n, inherits = FALSE)) {
+  #     v <- get(n, inherits = FALSE)
+  #     if (inherits(v, "to_pull_from_description")) {
+  #       if (is.null(descobj)) descobj <- desc::desc(file.path(library_path, my_package_name, "DESCRIPTION"))
+  #       assign(n, process_pull_from_description(v, descobj))
+  #     }
+  #   }
+  # }
+  #
+  # # Transfer icons if present -----------------------------------------------
+  #
+  #
+  # electron_build_resources <- system.file("extdata",
+  #                                         "icon",
+  #                                         package = my_package_name,
+  #                                         lib.loc = library_path)
+  #
+  # if (nchar(electron_build_resources) != 0) {
+  #   electron_build_resources <- base::list.files(electron_build_resources,
+  #                                                full.names = TRUE)
+  #   resources <- base::file.path(app_root_path, "resources")
+  #   base::dir.create(resources)
+  #   base::file.copy(from = electron_build_resources, to = resources)
+  # }
+  #
+  # # Create package.json -----------------------------------------------------
+  # electricShine::create_package_json(app_name = app_name,
+  #                                    semantic_version = semantic_version,
+  #                                    app_root_path = app_root_path,
+  #                                    description = short_description,
+  #                                    product_name = product_name,
+  #                                    author = author,
+  #                                    copyright = copyright,
+  #                                    website = website,
+  #                                    keywords = keywords,
+  #                                    license = license,
+  #                                    deps = deps)
+  #
+  #
+  #
+  # # Add function that runs the shiny app to description.js ------------------
+  # electricShine::modify_background_js(background_js_path = file.path(app_root_path,
+  #                                                                    "src",
+  #                                                                    "background.js"),
+  #                                     my_package_name = my_package_name,
+  #                                     function_name = function_name,
+  #                                     r_path = base::dirname(library_path),
+  #                                     r_bitness = r_bitness,
+  #                                     app_args = app_args)
+  #
+  #
+  # # Download and unzip nodejs -----------------------------------------------
+  #
+  # nodejs_path <- electricShine::install_nodejs(node_url = "https://nodejs.org/dist",
+  #                                              nodejs_path = nodejs_path,
+  #                                              force_install = FALSE,
+  #                                              nodejs_version = nodejs_version,
+  #                                              permission_to_install = permission_to_install_nodejs)
+  #
+  #
+  # # Build the electron app --------------------------------------------------
+  # if (run_build == TRUE) {
+  #
+  #   electricShine::run_build_release(nodejs_path = nodejs_path,
+  #                                    app_path = app_root_path,
+  #                                    nodejs_version = nodejs_version)
+  #
+  #   message("You should now have both a transferable and distributable installer Electron app.")
+  #
+  # } else {
+  #
+  #   message("Build step was skipped. When you are ready to build the distributable run 'electricShine::runBuild(...)'")
+  #
+  # }
 
 }
