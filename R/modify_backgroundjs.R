@@ -16,26 +16,26 @@ modify_background_js <- function(background_js_path,
                                  function_name,
                                  r_path,
                                  r_bitness = "x64",
+                                 python_path = NULL,
                                  app_args){
   if (!file.exists(background_js_path)) {
     stop("modify_background_js() failed because background_js_path didn't point to an existing file.")
   }
-  
+
   background_js_contents <- readLines(background_js_path)
-  
-  R_SHINY_FUNCTION <- paste0(my_package_name, 
-                             "::",
-                             function_name)
+
+  if (!is.null(python_path)) {
+    PYTHON_PATH <- "python.exe"
+  } else {
+    PYTHON_PATH <- "null"
+  }
+
+  R_SHINY_FUNCTION <- paste0(my_package_name, "::", function_name)
   R_BITNESS <- force(r_bitness)
   APP_ARGS <- force(app_args)
-  background_js_contents <- sapply(background_js_contents,
-                                   function(x) {
-                                     glue::glue(x, 
-                                                .open = "<?<",
-                                                .close = ">?>")
-                                   })
-  
-  writeLines(background_js_contents,
-             background_js_path)
-  
+  background_js_contents <- vapply(background_js_contents, function(x) {
+    glue::glue(x, .open = "<?<", .close = ">?>")
+  }, FUN.VALUE = character(1))
+
+  writeLines(background_js_contents, background_js_path)
 }

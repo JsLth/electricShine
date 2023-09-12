@@ -1,4 +1,4 @@
-/*Some parts of this have been rewritten and/or replaced with 
+/*Some parts of this have been rewritten and/or replaced with
 code from https://github.com/dirkschumacher/r-shiny-electron
 MIT License
 
@@ -30,7 +30,7 @@ const {
   session,
   BrowserWindow,
   Menu,
-  dialog 
+  dialog
 } = require('electron');
 
 import path from "path";
@@ -213,19 +213,20 @@ if (!gotTheLock) {
     rShinyProcess = spawn(NODER, ['-e', '<?<R_SHINY_FUNCTION>?>(<?<APP_ARGS>?>)'],
       {
         env: {
-          //Necessary for letting R know where it is and ensure we're not using another R 
+          //Necessary for letting R know where it is and ensure we're not using another R
           'WITHIN_ELECTRON': 'TRUE', // can be used within an app to implement specific behaviour
           'RHOME': rResources,
           'R_HOME_DIR': rResources,
           'R_LIBS': path.join(rResources, "library"),
           'R_LIBS_USER': path.join(rResources, "library"),
           'R_LIBS_SITE': path.join(rResources, "library"),
-          'R_LIB_PATHS': path.join(rResources, "library")
+          'R_LIB_PATHS': path.join(rResources, "library"),
+          'RETICULATE_PYTHON': '<?<PYTHON_PATH>?>'
         },
         detached: true
       },
     )
-    
+
     rShinyProcess.stderr.setEncoding('utf8');
     rShinyProcess.stderr.on('data', function (data) {
       logRMessages(data, 'stderr');

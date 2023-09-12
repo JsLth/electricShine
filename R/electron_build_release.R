@@ -7,92 +7,48 @@
 #' @return nothing, used for side-effects
 #' @export
 #'
-run_build_release <- function(nodejs_path = file.path(system.file(package = "electricShine"), "nodejs"),
-                              app_path,
-                              nodejs_version){
-
-
-  os <- electricShine::get_os()
-
+run_build_release <- function(nodejs_path, app_path) {
   npm_path <- .check_npm_works(node_top_dir = nodejs_path)
 
-  if (base::isFALSE(npm_path)) {
-
-    stop("First run install_nodejs() or point nodejs_path to a functional version of nodejs.")
-
+  if (isFALSE(npm_path)) {
+    stop("First point nodejs_path to a functional version of nodejs.")
   }
 
-  message("Creating app...")
-
-
-  quoted_app_path <- base::shQuote(app_path)
-  quoted_npm_path <- base::shQuote(npm_path)
-
-
+  cat("Creating app...\n")
 
   # electron-packager <sourcedir> <appname> --platform=<platform> --arch=<arch> [optional flags...]
   # npm start --prefix path/to/your/app
-  message("Installing npm dependencies for the installation process. these are specfied in 'package.json'. Also this step can take a few minutes.")
+  cat(paste0(
+    "Installing npm dependencies for the installation process.",
+    "These are specfied in 'package.json'. Also this step can",
+    "take a few minutes.\n"
+  ))
 
-  if (base::identical(os, "win")) {
+  code <- processx::run(
+    command = quoted_npm_path,
+    args = c("install", "--scripts-prepend-node-path"),
+    wd = quoted_app_path,
+    echo = TRUE,
+    echo_cmd = TRUE,
+    spinner = TRUE
+  )$status
 
-
-    message(code <- system(
-      glue::glue('cmd.exe /C cd /D {quoted_app_path} && {quoted_npm_path} install --scripts-prepend-node-path'),
-      invisible = FALSE,
-      minimized = F,
-      wait = T,
-      intern = F,
-      ignore.stdout = F,
-      ignore.stderr = F
-    ))
-
-    if (!identical(code, 0L)) {
-      stop("Installation failed.")
-    }
-
-    base::message("Building your Electron app.")
-
-    base::message(code <- system(
-      glue::glue('cmd.exe /C cd /D {quoted_app_path} && {quoted_npm_path} run release --scripts-prepend-node-path'),
-      invisible = FALSE,
-      minimized = F,
-      wait = T,
-      intern = F,
-      ignore.stdout = F,
-      ignore.stderr = F
-    ))
-
-    if (!identical(code, 0L)) {
-      stop("Installation failed.")
-    }
+  if (!identical(code, 0L)) {
+    stop("Installation failed.")
   }
 
-  if (identical(os, "mac")) {
-    message(code <- system(
-      glue::glue('cd {quoted_app_path} && {quoted_npm_path} install --scripts-prepend-node-path'),
-      wait = T,
-      intern = F,
-      ignore.stdout = F,
-      ignore.stderr = F
-    ))
+  cat("Building your Electron app.\n")
 
-    if (!identical(code, 0L)) {
-      stop("Installation failed.")
-    }
+  code <- processx::run(
+    command = quoted_npm_path,
+    args = c("run", "release", "--scripts-prepend-node-path"),
+    wd = quoted_app_path,
+    echo = TRUE,
+    echo_cmd = TRUE,
+    spinner = TRUE
+  )$status
 
-    message("Building your Electron app.")
-
-    message(code <- system(
-      glue::glue('cd {quoted_app_path} && {quoted_npm_path} run release --scripts-prepend-node-path'),
-      wait = T,
-      intern = F,
-      ignore.stdout = F,
-      ignore.stderr = F
-    ))
-
-    if (!identical(code, 0L)) {
-      stop("Installation failed.")
-    }
+  if (!identical(code, 0L)) {
+    stop("Installation failed.")
   }
 }

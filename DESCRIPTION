@@ -22,14 +22,11 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
-    glue,
     pak,
-    stringr,
-    withr,
-    openssl,
-    zip,
     desc,
-    reticulate
+    yaml,
+    jsonlite,
+    processx
 Suggests: 
     testthat (>= 2.1.0),
     covr,

@@ -8,41 +8,33 @@
 #' @return
 #' @export
 #'
-download_miniconda3 <- function(os, minconda_version ="latest", minconda_tempdir = NULL) {
+download_miniconda3 <- function(version = "latest", dir = NULL) {
+  dir <- dir %||% tempdir()
 
-  if (is.null(minconda_tempdir)) {
-    minconda_tempdir <- tempdir()
+  os  <- switch(get_os(),
+    win = "Windows",
+    mac = "MacOSX",
+    unix = "Linux",
+    stop('os must be "win", "mac", or "unix"')
+  )
+
+  if (!identical(version, "latest")) {
+    version <- numeric_version(version, strict = FALSE)
+    if (is.na(version)) {
+      stop('minconda_version must be "latest" or semantic version')
+    }
   }
 
-  os  <- switch(os,
-                win = "Windows",
-                mac = "MacOSX",
-                unix = "Linux",
-                stop('os must be "win", "mac", or "unix"'))
+  ext <- if (identical(os, "Windows")) ".exe" else ".sh"
 
-  if (minconda_version == "latest") {
-    minconda_version <- "latest"
-  } else if (numeric_version(minconda_version)) {
-    minconda_version <- minconda_version
-  } else {
-    stop('minconda_version must be "latest" or semantic version')
-  }
+  url <- sprintf(
+    "https://repo.anaconda.com/miniconda/Miniconda3-%s-%s-x86_64%s",
+    version, os, ext
+  )
 
-  ext <- if (os == "Windows") ".exe" else ".sh"
-
-  miniconda_url <- paste0("https://repo.anaconda.com/miniconda/Miniconda3-",
-                          minconda_version,
-                          "-",
-                          os,
-                          "-x86_64",
-                          ext)
-
-  outpath <- file.path(minconda_tempdir,
-                       "miniconda.sh")
-  download.file(miniconda_url,
-                outpath)
-  message(paste0("Saved to: ",
-                 outpath))
+  outpath <- file.path(dir, paste0("miniconda", ext))
+  download.file(url, outpath, mode = "wb")
+  cat(paste0("Saved to: ", outpath, "\n"))
   outpath
 }
 
@@ -54,32 +46,68 @@ download_miniconda3 <- function(os, minconda_version ="latest", minconda_tempdir
 #' @return
 #' @export
 #'
-install_miniconda3 <- function(miniconda_install_script_path,
-                               miniconda_installation_path = NULL){
-  #TODO, path-exist checks and message
-  if (!file.exists(miniconda_install_script_path)){
-    stop(paste0("Couldn't find: ", miniconda_install_script_path))
+install_miniconda3 <- function(path = NULL, version = NULL) {
+  version <- version %||% "latest"
+  installer <- download_miniconda3(version = version)
+
+  if (is.null(path)) {
+    path <- tempdir()
+    path <- file.path(path, "conda_dir")
+    path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+    if (!dir.exists(path)) dir.create(path)
   }
 
-  if (is.null(miniconda_installation_path)){
-    temp <- tempdir()
-    temp <- file.path(temp, "conda_top_dir")
-    temp <- normalizePath(temp,
-                          winslash = "/",
-                          mustWork = FALSE # previous command adds extra slash so not true path (at least on mac)
+  args <- if (identical(get_os(), "win")) {
+    if (dir.exists(path))
+      unlink(path, recursive = TRUE)
+    c("/InstallationType=JustMe", "/AddToPath=0", "/RegisterPython=0",
+      "/NoRegistry=1", "/S", paste("/D", utils::shortPathName(path), sep = "="))
+  } else if (get_os() %in% c("mac", "unix")) {
+    c("-b", if (update) "-u", "-p", shQuote(path))
+  } else {
+    stopf("unsupported platform %s", shQuote(Sys.info()[["sysname"]]))
+  }
+  Sys.chmod(installer, mode = "0755")
+
+  if (identical(get_os(), "mac")) {
+    old <- Sys.getenv("DYLD_FALLBACK_LIBRARY_PATH")
+    new <- if (nzchar(old))
+      paste(old, "/usr/lib", sep = ":")
+    else "/usr/lib"
+    Sys.setenv(DYLD_FALLBACK_LIBRARY_PATH = new)
+    on.exit(Sys.setenv(DYLD_FALLBACK_LIBRARY_PATH = old),
+            add = TRUE)
+  }
+
+  if (identical(get_os(), "win")) {
+    installer <- normalizePath(installer)
+    status <- processx::run(
+      command = basename(installer),
+      args = args,
+      wd = dirname(installer),
+      spinner = TRUE,
+      echo = TRUE,
+      echo_cmd = TRUE
     )
-    dir.create(temp)
-    miniconda_installation_path <- temp
   }
 
-  installation_command <- paste0("sh ",
-                                 miniconda_install_script_path,
-                                 " -bup",
-                                 miniconda_installation_path)
-  system(installation_command)
+  if (identical(get_os(), "unix")) {
+    bash_path <- Sys.which("bash")
+    if (bash_path[1] == "")
+      stopf("The miniconda installer requires bash.")
+    status <- processx::run(
+      command = basename(bash_path[1]),
+      args = args,
+      wd = dirname(bash_path[1]),
+      spinner = TRUE,
+      echo = TRUE,
+      echo_cmd = TRUE
+    )
+  }
 
-  miniconda_installation_path <- c("miniconda_top_directory" = miniconda_installation_path)
-  miniconda_installation_path
+  conda_update(path)
+
+  path
 }
 
 
@@ -90,11 +118,13 @@ install_miniconda3 <- function(miniconda_install_script_path,
 #' @return
 #' @export
 #'
-conda_update <- function(conda_top_dir){
-
-  conda_path <- find_conda_program(conda_top_dir)
-
-  system2(conda_path,
-          c("update -n base -c defaults conda -y"),
-          stdout = "")
+conda_update <- function(conda_dir) {
+  processx::run(
+    command = conda_exec(),
+    args = c("update", "-n", "base", "-c", "defaults", "conda", "-y"),
+    wd = append_dir(conda_dir),
+    spinner = TRUE,
+    error_on_status = TRUE,
+    echo_cmd = TRUE
+  )
 }
