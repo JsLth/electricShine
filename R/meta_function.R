@@ -224,7 +224,7 @@ electrify <- function(app_name,
 
 
   # Fill in arguments from DESCRIPTION --------------------------------------
-browser()
+
   formal_names <- names(formals())
   descobj <- NULL
   for (n in formal_names) {
